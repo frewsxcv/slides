@@ -62,14 +62,27 @@ fn resize_image(path: &str) {
 ---
 
 ```rust
-use std::thread;
+let paths = glob::glob("dogs/*").unwrap();
 
-let paths = glob("dogs/*").unwrap();
+paths.for_each(|path| {
+    resize_image(path);
+});
+
+println!("done! 🐶");
+```
+
+---
+
+```rust
+let paths = glob::glob("dogs/*").unwrap();
 
 let mut handles = vec![];
 
-paths.iter().for_each(|path| {
-    let handle = thread::spawn(|| resize_image(path)).unwrap();
+paths.for_each(|path| {
+    let handle = std::thread::spawn(|| {
+        resize_image(path)
+    }).unwrap();
+
     handles.push(handle);
 });
 
