@@ -101,11 +101,9 @@ fn warholify(src_path: &Path) {
 ---
 
 ```rust
-let paths = glob::glob("dogs/*").unwrap();
-
-paths.for_each(|path| {
-    resize_image(path);
-});
+for dir_entry in std::fs::read_dir("dogs")? {
+    warholify(dir_entry?.path())
+}
 
 println!("done! 🐶");
 ```
@@ -113,14 +111,12 @@ println!("done! 🐶");
 ---
 
 ```rust
-let paths = glob::glob("dogs/*").unwrap();
-
 let mut handles = vec![];
 
-paths.for_each(|path| {
+for dir_entry in std::fs::read_dir("dogs")? {
     let handle = std::thread::spawn(|| {
-        resize_image(path)
-    }).unwrap();
+        warholify(dir_entry?.path())
+    })?;
 
     handles.push(handle);
 });
