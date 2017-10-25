@@ -68,8 +68,33 @@ class: center, middle
 ---
 
 ```rust
-fn resize_image(path: &str) {
+extern crate image;
 
+use image::GenericImage;
+use std::path::Path;
+
+const GRID: [(u32, u32, i32); 9] = [
+    (0, 0, 180), (0, 1, 60), (0, 2, 300),
+    (1, 0, 340), (1, 1, 20), (1, 2, 220),
+    (2, 0, 260), (2, 1, 100), (2, 2, 140)
+];
+
+fn warholify(src_path: &Path) {
+    let img = match image::open(src_path) {
+        Ok(i) => i,
+        Err(..) => return,
+    };
+    let (src_width, src_height) = img.dimensions();
+    let mut img_buf = image::ImageBuffer::new(src_width * 3, src_height * 3);
+    for &(x, y, hue) in GRID.iter() {
+        img_buf.copy_from(
+            &img.adjust_contrast(100.).huerotate(hue),
+            src_width * x,
+            src_height * y,
+        );
+    }
+    let dst_path = Path::new("out").join(src_path);
+    img_buf.save(dst_path).unwrap();
 }
 ```
 
