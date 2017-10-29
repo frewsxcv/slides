@@ -29,7 +29,11 @@
 
 class: center, middle
 
-# building a threadpool in N minutes
+# threadpools
+
+# threadpools
+
+# threadpools
 
 ???
 
@@ -45,19 +49,25 @@ class: center, middle
 
 # who
 
-## corey farwell / rwell.org / frewsxcv
+## corey farwell
 
----
+## rwell.org
 
-# Agenda
+## @frewsxcv
 
-1. Introduction
-2. Deep-dive
-3. ...
+???
 
----
+backend software engineer at kickstarter
 
-# Introduction
+ruby / rails
+
+started using rust late 2014
+
+contributed to various projects over the years
+
+rust documentation team
+
+nowadays mainly contribute improvements to standard library documentation
 
 ---
 
@@ -67,25 +77,72 @@ class: center, middle
 
 ---
 
-```rust
-extern crate image;
+what is the basic unit of concurrency in rust
 
-use image::GenericImage;
+---
+
+```rust
+use std::thread;
+
+fn main() {
+    thread::spawn(|| {
+        println!("hello from a thread! 👋")
+    });
+}
+```
+
+???
+
+anyone know what happens when this gets run?
+
+---
+
+class: middle
+
+```rust
+use std::thread;
+
+fn main() {
+    let handle = thread::spawn(|| {
+        println!("hello from a thread! 👋")
+    });
+
+    handle.join();
+}
+```
+
+---
+
+show example of spawn unwrap causing a panic (by spawning too many)
+
+---
+
+class: center, middle
+
+<div style="display: inline-block">
+  <img src="https://i.imgur.com/Rqz07TZ.jpg" alt="" style="width: 45%">
+  <img src="https://i.imgur.com/mJNFkqw.jpg" alt="" style="width: 45%">
+</div>
+
+---
+
+```rust
+use image::{self, GenericImage, ImageBuffer};
 use std::path::Path;
 
 const GRID: [(u32, u32, i32); 9] = [
-    (0, 0, 180), (0, 1, 60), (0, 2, 300),
-    (1, 0, 340), (1, 1, 20), (1, 2, 220),
-    (2, 0, 260), (2, 1, 100), (2, 2, 140)
+  (0, 0, 180), (1, 0, 340), (2, 0, 260),
+  (0, 1, 60),  (1, 1, 20),  (2, 1, 100),
+  (0, 2, 300), (1, 2, 220), (2, 2, 140),
 ];
 
-fn warholify(src_path: &Path) {
+fn warholify(src_path: &Path) -> Result<(), Box<Error>> {
     let img = match image::open(src_path) {
         Ok(i) => i,
         Err(..) => return,
     };
     let (src_width, src_height) = img.dimensions();
-    let mut img_buf = image::ImageBuffer::new(src_width * 3, src_height * 3);
+    let mut img_buf = ImageBuffer::new(src_width * 3, src_height * 3);
     for &(x, y, hue) in GRID.iter() {
         img_buf.copy_from(
             &img.adjust_contrast(100.).huerotate(hue),
@@ -94,14 +151,16 @@ fn warholify(src_path: &Path) {
         );
     }
     let dst_path = Path::new("out").join(src_path);
-    img_buf.save(dst_path).unwrap();
+    img_buf.save(dst_path)?;
 }
 ```
 
 ---
 
 ```rust
-for dir_entry in std::fs::read_dir("dogs")? {
+use std::fs;
+
+for dir_entry in fs::read_dir("dogs")? {
     warholify(dir_entry?.path())
 }
 
@@ -111,19 +170,19 @@ println!("done! 🐶");
 ---
 
 ```rust
+use std::{fs, thread}
+
 let mut handles = vec![];
 
-for dir_entry in std::fs::read_dir("dogs")? {
-    let handle = std::thread::spawn(|| {
+for dir_entry in fs::read_dir("dogs")? {
+    let handle = thread::spawn(|| {
         warholify(dir_entry?.path())
     })?;
 
     handles.push(handle);
-});
+}
 
-handles.for_each(|handle| {
-    handle.join().unwrap();
-})
+handles.for_each(|handle| handle.join()?);
 ```
 
 ---
@@ -170,6 +229,12 @@ pub fn global() -> &'static Arc<ThreadPool> {
     &DEFAULT_THREAD_POOL
 }
 ```
+
+---
+
+rayon is in stylo which is in firefox (in a week)
+
+---
 
 .footnote[https://github.com/rayon-rs/rayon/blob/master/rayon-core/src/thread_pool/mod.rs]
 
