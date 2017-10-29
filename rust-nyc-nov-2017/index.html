@@ -17,6 +17,7 @@
 
       .remark-code, .remark-inline-code {
         font-family: 'Inconsolata';
+        font-size: 1.6rem;
       }
 
       .footnote {
@@ -71,24 +72,66 @@ nowadays mainly contribute improvements to standard library documentation
 
 ---
 
-<img src="https://i.imgur.com/6Y0CvYm.png" alt="" style="width: 100%; border: 1px black solid;">
+class: center, middle
 
-.footnote[https://www.rust-lang.org/en-US/faq.html]
+# slides.rwell.org
 
 ---
 
-what is the basic unit of concurrency in rust
+???
+
+So why are we all here today? We're here to talk about Rust. And what is Rust?
+
+---
+
+class: center, middle
+
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Rust_programming_language_black_logo.svg/1024px-Rust_programming_language_black_logo.svg.png" width="60%">
+
+---
+
+class: middle
+
+<em>
+
+**What is this project's goal?**
+
+To design and implement a safe, concurrent, practical systems language.
+
+Rust exists because other languages at this level of abstraction and efficiency are unsatisfactory. In particular:
+
+1. There is too little attention paid to safety.
+1. They have poor concurrency support.
+1. There is a lack of practical affordances.
+1. They offer limited control over resources.
+
+Rust exists as an alternative that provides both efficient code and a comfortable level of abstraction, while improving on all four of these points.
+
+</em>
+
+.footnote[— https://www.rust-lang.org/en-US/faq.html]
+
+---
+
+class: center, middle
+
+# concurrent
+
+???
+
+what is the basic unit of concurrency in rust?
+
+---
+
+threads
 
 ---
 
 ```rust
-use std::thread;
-
-fn main() {
-    thread::spawn(|| {
-        println!("hello from a thread! 👋")
-    });
-}
+thread::spawn(|| {
+    thread::sleep(Duration::from_secs(1));
+    println!("hello from a thread! 👋")
+});
 ```
 
 ???
@@ -100,20 +143,293 @@ anyone know what happens when this gets run?
 class: middle
 
 ```rust
-use std::thread;
-
 fn main() {
     let handle = thread::spawn(|| {
+        thread::sleep(Duration::from_secs(1));
         println!("hello from a thread! 👋")
     });
 
-    handle.join();
+    handle.join().unwrap();
 }
 ```
 
 ---
 
-show example of spawn unwrap causing a panic (by spawning too many)
+```rust
+for i in 0..4 {
+    thread::spawn(move || {
+        thread::sleep(Duration::from_secs(1));
+        println!("hello from thread {}", i);
+    });
+}
+```
+
+---
+
+```rust
+for i in 0..100_000 {
+    thread::spawn(move || {
+        thread::sleep(Duration::from_secs(1));
+        println!("hello from thread {}", i);
+    });
+}
+```
+
+<img src="https://i.imgur.com/IALFtQD.gif" width="100%">
+
+???
+
+note: in the gif, i put a 'sleep' inside the loop to slow down execution
+
+---
+
+threads
+
+---
+
+native threads
+
+---
+
+native threads vs. green threads
+
+???
+
+if you're working with a new programming language and dealing with concurrency, it's important to know what's happening behind the scenes
+
+---
+
+```rust
+let listener =
+    TcpListener::bind("127.0.0.1:8080").unwrap();
+
+for stream in listener.incoming() {
+    let stream = stream.unwrap();
+
+    thread::spawn(|| {
+        handle_connection(stream);
+    });
+}
+```
+
+???
+
+more realistic example of how this problematic
+
+one thread per incoming tcp connection
+
+you might be thinking: 'who would ever design a system like that!'
+
+---
+
+<img src="https://i.imgur.com/sCR87pi.png" width="100%">
+
+???
+
+RFC 3875 - The Common Gateway Interface (CGI)
+
+<em>
+9.5.  Script Interference with the Server
+
+The most common implementation of CGI invokes the script as a child
+process using the same user and group as the server process.  It
+should therefore be ensured that the script cannot interfere with the
+server process, its configuration, documents or log files.
+</em>
+
+---
+
+???
+
+**read**: we need some minimal layer of abstraction that allows us to run work on a fixed number of threads.
+
+---
+
+# thread pool
+
+---
+
+```rust
+fn main() {
+    let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+    let pool = ThreadPool::new(4);
+
+    for stream in listener.incoming() {
+        let stream = stream.unwrap();
+
+        pool.execute(|| {
+            handle_connection(stream);
+        });
+    }
+}
+```
+
+???
+
+explain how this code is different than the previous iteration
+
+---
+
+class: center, middle
+
+# implementation
+
+???
+
+**read**: so as per the last slide, now that you've seen what a basic interface is for the threadpool, i want to briefly run through how one might implement this.
+
+**read**: when preparing this presentation, i had a choice. i could walk through a 
+
+
+there's a _lot_ of code on the following slides, and if you get lost, don't worry. if you're new to rust, it's okay (if not expected) to feel lost. there's a reason this material isn't covered until the last chapter of the new book. immediately after the implementation, i'll introduce some of the threadpool libraries that already exist in the ecosystem that anyone can use.
+
+---
+
+class: center, middle
+
+# components
+
+## threadpool
+
+## job
+
+## worker
+
+---
+
+# implementation: threadpool
+
+```rust
+pub struct ThreadPool {
+    ...
+}
+
+impl ThreadPool {
+    pub fn new(size: usize) -> ThreadPool {
+        ...
+    }
+
+    pub fn execute<F>(&self, f: F)
+        where
+            F: FnOnce() + Send + 'static
+    {
+        ...
+    }
+}
+```
+
+???
+
+the traits on `where` clause are the same traits specified by the standard library's `thread::spawn` function we saw earlier
+
+**read**: `FnOnce`: in rust, closures can capture their environment in a few different ways. in particular, every closure in rust either implements the `Fn` trait, the `FnMut` trait, or the `FnOnce` trait. `FnOnce` indicates the closure is only called once and moves ownership of captured values into the closure.
+[1](https://doc.rust-lang.org/book/second-edition/ch13-01-closures.html#closures-can-capture-their-environment)
+
+**read**: `Send` indicates the closure is able to safely be sent to another thread
+[1](https://doc.rust-lang.org/beta/nomicon/send-and-sync.html)
+
+**read**: `'static` indicates that any references used within the closure must have a static lifetime, which more or less means if you use a reference in the closure, it must be constant or static.
+
+---
+
+# implementation: threadpool
+
+```rust
+impl ThreadPool {
+    pub fn new(size: usize) -> ThreadPool {
+        let (sender, receiver) = mpsc::channel();
+
+        let mut workers = vec![];
+
+        for id in 0..size {
+            workers.push(Worker::new(receiver.clone()));
+        }
+
+        ThreadPool {
+            workers,
+            sender,
+        }
+    }
+}
+```
+
+???
+
+mpsc: multi producer single consumer
+
+---
+
+# implementation: threadpool
+
+```rust
+impl ThreadPool {
+    pub fn execute<F>(&self, f: F)
+        where
+            F: FnOnce() + Send + 'static
+    {
+        let job = Box::new(f);
+
+        self.sender.send(job).unwrap();
+    }
+}
+```
+
+---
+
+# implementation: job
+
+```rust
+type Job = Box<FnOnce + Send + 'static>;
+```
+
+---
+
+# implementation: worker
+
+```rust
+struct Worker {
+    ...
+}
+
+impl Worker {
+    fn new(receiver: mpsc::Receiver<Job>)
+        -> Worker
+    {
+        ...
+    }
+}
+```
+
+---
+
+# implementation: worker
+
+```rust
+struct Worker {
+    handle: thread::JoinHandle<()>,
+}
+```
+
+---
+
+# implementation: worker
+
+```rust
+impl Worker {
+    fn new(receiver: mpsc::Receiver<Job>)
+        -> Worker
+    {
+        let handle = thread::spawn(move || {
+            loop {
+                let job = receiver.recv().unwrap();
+                job();
+            }
+        });
+
+        Worker { handle }
+    }
+}
+```
 
 ---
 
@@ -187,11 +503,11 @@ handles.for_each(|handle| handle.join()?);
 
 ---
 
+???
+
 Demonstrate usability issues of scopeless threadpool
 
----
-
-Show how to accomplish scopeless threadpool issues with barrier
+example in https://github.com/Kimundi/scoped-threadpool-rs
 
 ---
 
@@ -241,6 +557,20 @@ rayon is in stylo which is in firefox (in a week)
 ???
 
 'image' crate uses rayon _and_ scoped_threadpool
+
+---
+
+further reading / thanks
+
+https://doc.rust-lang.org/book/
+
+???
+
+some of the ideas/examples in this presentation were taken from the last second edition of TRPL book (by carol and steve)
+
+---
+
+thanks!
     </textarea>
     <script src="https://remarkjs.com/downloads/remark-latest.min.js">
     </script>
