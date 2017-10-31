@@ -32,6 +32,10 @@
       .footnote {
         font-size: 0.8em;
       }
+
+      .small .remark-code {
+        font-size: 110%;
+      }
     </style>
   </head>
   <body>
@@ -533,7 +537,7 @@ for i in 0..100_000 {
     });
 }
 
-threadpoo.join().unwrap();
+threadpool.join().unwrap();
 ```
 
 ---
@@ -708,12 +712,12 @@ impl ThreadPool {
 # implementation: job
 
 ```rust
-type Job = Box<FnOnce + Send + 'static>;
+type Job = Box<FnOnce() + Send + 'static>;
 ```
 
 ???
 
-**explain**: the code
+**read**: because the compiler doesn't know the size of the closure at compile time, since closure size can vary, we need to move the closure onto the heap before we can pass it through channels to other threads.
 
 ---
 
@@ -772,97 +776,70 @@ impl Worker {
 
 ---
 
+???
+
+and that's it
+
+---
+
 class: center, middle
 
-<div style="display: inline-block">
-  <img src="https://i.imgur.com/Rqz07TZ.jpg" alt="" style="width: 45%">
-  <img src="https://i.imgur.com/mJNFkqw.jpg" alt="" style="width: 45%">
-</div>
+# usage
 
 ---
 
-```rust
-use image::{self, GenericImage, ImageBuffer};
-use std::path::Path;
+class: center, middle
 
-const GRID: [(u32, u32, i32); 9] = [
-  (0, 0, 180), (1, 0, 340), (2, 0, 260),
-  (0, 1, 60),  (1, 1, 20),  (2, 1, 100),
-  (0, 2, 300), (1, 2, 220), (2, 2, 140),
-];
+# threadpool
 
-fn warholify(src_path: &Path) -> Result<(), Box<Error>> {
-    let img = match image::open(src_path) {
-        Ok(i) => i,
-        Err(..) => return,
-    };
-    let (src_width, src_height) = img.dimensions();
-    let mut img_buf = ImageBuffer::new(src_width * 3, src_height * 3);
-    for &(x, y, hue) in GRID.iter() {
-        img_buf.copy_from(
-            &img.adjust_contrast(100.).huerotate(hue),
-            src_width * x,
-            src_height * y,
-        );
-    }
-    let dst_path = Path::new("out").join(src_path);
-    img_buf.save(dst_path)?;
-}
-```
+# scoped-pool
 
----
+# scoped_threadpool
 
-```rust
-use std::fs;
-
-for dir_entry in fs::read_dir("dogs")? {
-    warholify(dir_entry?.path())
-}
-
-println!("done! 🐶");
-```
-
----
-
-```rust
-use std::{fs, thread}
-
-let mut handles = vec![];
-
-for dir_entry in fs::read_dir("dogs")? {
-    let handle = thread::spawn(|| {
-        warholify(dir_entry?.path())
-    })?;
-
-    handles.push(handle);
-}
-
-handles.for_each(|handle| handle.join()?);
-```
-
----
+# rayon
 
 ???
 
-Demonstrate usability issues of scopeless threadpool
+**explain**: history of each
 
-example in https://github.com/Kimundi/scoped-threadpool-rs
-
----
-
-Show scoped
-
-https://github.com/reem/rust-scoped-pool/blob/master/src/lib.rs
-
-https://github.com/rust-lang/rust/blob/d754722a04b99fdcae0fd97fa2a4395521145ef2/src/libstd/sync/task_pool.rs
-
-https://github.com/servo/servo/blob/612f2c1c2a9e56de2abe9ce32fcb6461a133686d/components/style/scoped_tls.rs
+**threadpool**: used to be TaskPool in the std before 1.0
 
 ---
 
-performance comparison
+# rayon
+
+```rust
+use rayon::prelude::*;
+
+fn sum_of_squares(input: &[i32]) -> i32 {
+    input.par_iter()
+         .map(|&i| i * i)
+         .sum()
+}
+```
+
+```rust
+use rayon::prelude::*;
+
+fn increment_all(input: &mut [i32]) {
+    input.par_iter_mut()
+         .for_each(|p| *p += 1);
+}
+```
 
 ---
+
+class: center, middle
+
+```rust
+rayon::ThreadPool
+```
+
+---
+
+class: small
+
+# rayon
 
 ```rust
 /// Returns a handle to the global thread pool. This is the pool
@@ -887,15 +864,35 @@ pub fn global() -> &'static Arc<ThreadPool> {
 
 ---
 
-rayon is in stylo which is in firefox (in a week)
+```rust
+rayon::spawn(|| {
+    // ...
+})
+```
 
----
+```rust
+let mut vec = vec![0, 1, 2, 3, 4, 5, 6, 7];
+
+// Use the threads as scoped threads that can
+// reference anything outside this closure
+rayon::scoped(|scoped| {
+    // Create references to each element in the vector ...
+    for e in &mut vec {
+        // ... and add 1 to it in a seperate thread
+        scoped.execute(move || {
+            *e += 1;
+        });
+    }
+});
+
+assert_eq!(vec, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+```
 
 .footnote[https://github.com/rayon-rs/rayon/blob/master/rayon-core/src/thread_pool/mod.rs]
 
-???
+---
 
-'image' crate uses rayon _and_ scoped_threadpool
+rayon is in stylo which is in firefox (in a week)
 
 ---
 
