@@ -10,14 +10,23 @@
         font-family: 'Droid Serif';
       }
 
-      h1, h2, h3, h4, h5, h6 {
+      .remark-slide-content h1, h2, h3, h4, h5, h6 {
         font-family: 'Droid Sans';
         font-weight: normal;
+      }
+
+      .remark-slide-content h1 {
+        font-size: 3rem;
+      }
+
+      .remark-slide-content h2 {
+        font-size: 2.4rem;
       }
 
       .remark-code, .remark-inline-code {
         font-family: 'Inconsolata';
         font-size: 1.6rem;
+        white-space: pre-wrap;
       }
 
       .footnote {
@@ -37,6 +46,10 @@ class: center, middle
 # threadpools
 
 ???
+
+hello everyone.
+
+i'm here to talk about threadpools
 
 https://github.com/Kimundi/scoped-threadpool-rs/blob/master/src/lib.rs
 
@@ -58,6 +71,10 @@ class: center, middle
 
 ???
 
+who am i?
+
+**corey farwell**
+
 backend software engineer at kickstarter
 
 ruby / rails
@@ -66,9 +83,17 @@ started using rust late 2014
 
 contributed to various projects over the years
 
-rust documentation team
+rust documentation team (w/ steve)
 
-nowadays mainly contribute improvements to standard library documentation
+**rwell.org**
+
+there's not much on it so don't bother going to it
+
+**frewsxcv**
+
+unpronouncible online handle
+
+twitter github
 
 ---
 
@@ -76,17 +101,27 @@ class: center, middle
 
 # slides.rwell.org
 
+???
+
+**read**: in case you want to follow along, here's a url to the slides
+
 ---
 
 ???
 
-So why are we all here today? We're here to talk about Rust. And what is Rust?
+so why are we all here today? we're here to talk about rust. and what is rust?
 
 ---
 
 class: center, middle
 
 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Rust_programming_language_black_logo.svg/1024px-Rust_programming_language_black_logo.svg.png" width="60%">
+
+???
+
+rust is a programming language!
+
+and what is the goal of this programming language?
 
 ---
 
@@ -111,38 +146,96 @@ Rust exists as an alternative that provides both efficient code and a comfortabl
 
 .footnote[— https://www.rust-lang.org/en-US/faq.html]
 
+???
+
+according to the FAQs on the rust website, the goal of rust is...
+
+*To design and implement a safe, concurrent, practical systems language.*
+
+in particular, for this talk, we're going to focus on the 'concurrent' aspect
+
 ---
 
 class: center, middle
 
-# concurrent
+# “concurrent”
 
 ???
 
-what is the basic unit of concurrency in rust?
+wikipedia defines concurrent computing to be:
+
+*a form of computing in which several computations are executed during overlapping time periods—concurrently—instead of sequentially (one completing before the next starts).*
+
+what is the basic building block of concurrency in rust?
 
 ---
 
-threads
+class: center, middle
+
+# threads!
 
 ---
+
+# threads
 
 ```rust
-thread::spawn(|| {
-    thread::sleep(Duration::from_secs(1));
-    println!("hello from a thread! 👋")
-});
+use std::thread;
+use std::time::Duration;
+
+fn main() {
+    thread::spawn(|| {
+        thread::sleep(Duration::from_secs(1));
+        println!("hello from a thread! 👋")
+    });
+}
 ```
 
 ???
 
-anyone know what happens when this gets run?
+**explain**: go through every bit of the code
+
+lets see what happens when we compile and run this...
 
 ---
 
-class: middle
+# threads
 
 ```rust
+use std::thread;
+use std::time::Duration;
+
+fn main() {
+    thread::spawn(|| {
+        thread::sleep(Duration::from_secs(1));
+        println!("hello from a thread! 👋")
+    });
+}
+```
+
+```sh
+corey@mac /p/tmp> rustc code.rs
+corey@mac /p/tmp> ./code
+corey@mac /p/tmp>
+```
+
+???
+
+what happened? where's our output?
+
+some of you in the audience might have caught it earlier.
+
+in the main thread, we called `thread::spawn` and a child thread spawned. but then the main thread reached the end of the function. when that happens, the main thread kills all child threads and the child thread never printed the output.
+
+so how do we get the main thread to wait for the child thread to finish?
+
+---
+
+# threads
+
+```rust
+use std::thread;
+use std::time::Duration;
+
 fn main() {
     let handle = thread::spawn(|| {
         thread::sleep(Duration::from_secs(1));
@@ -153,49 +246,231 @@ fn main() {
 }
 ```
 
+???
+
+`thread::spawn` returns a `JoinHandle` struct. the `JoinHandle` struct allows us to block the main thread and wait for the child thread to complete via the `join` method. now when we run it...
+
 ---
 
+# threads
+
 ```rust
+use std::thread;
+use std::time::Duration;
+
+fn main() {
+    let handle = thread::spawn(|| {
+        thread::sleep(Duration::from_secs(1));
+        println!("hello from a thread! 👋")
+    });
+
+    handle.join().unwrap();
+}
+```
+
+```sh
+corey@mac /p/tmp> rustc code.rs
+corey@mac /p/tmp> ./code
+hello from a thread! 👋
+```
+
+???
+
+cool, looks like it worked
+
+so now that we've mastered spawing a single thread, let's try spawning multiple
+
+---
+
+# multiple threads
+
+```rust
+let mut handles = vec![];
+
 for i in 0..4 {
-    thread::spawn(move || {
-        thread::sleep(Duration::from_secs(1));
-        println!("hello from thread {}", i);
-    });
+    handles.push(
+        thread::spawn(move || {
+            thread::sleep(Duration::from_secs(1));
+            println!("hello from thread {}", i);
+        })
+    );
 }
+
+for h in handles { h.join().unwrap() }
 ```
 
+???
+
+**explain**: all the new parts of the code
+
+doing the same thing as before, but now we're building up a vector of handles and joining all of them. it's all a bit clunky, but so be it.
+
+let's try running and compiling...
+
 ---
+
+# multiple threads
+
+```sh
+corey@mac /p/tmp> rustc code.rs
+corey@mac /p/tmp> ./code
+hello from thread 2
+hello from thread 1
+hello from thread 3
+hello from thread 0
+corey@mac /p/tmp> ./code
+hello from thread 0
+hello from thread 3
+hello from thread 2
+hello from thread 1
+```
+
+???
+
+**explain**: the output
+
+as you can see, all four threads get run, in a non-deterministic order, in true asynchronous fashion
+
+let's try bumping up the amount of concurrency here a little bit...
+
+---
+
+# multiple threads
 
 ```rust
+let mut handles = vec![];
+
 for i in 0..100_000 {
-    thread::spawn(move || {
-        thread::sleep(Duration::from_secs(1));
-        println!("hello from thread {}", i);
-    });
+    handles.push(
+        thread::spawn(move || {
+            thread::sleep(Duration::from_secs(1));
+            println!("hello from thread {}", i);
+        })
+    );
 }
+
+for h in handles { h.join().unwrap() }
 ```
 
-<img src="https://i.imgur.com/IALFtQD.gif" width="100%">
+---
+
+```sh
+corey@mac /p/tmp> rustc code.rs
+corey@mac /p/tmp> ./code
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: Error { repr: Os { code: 35, message: "Resource temporarily unavailable" } }', src/libcore/result.rs:906:4
+note: Run with `RUST_BACKTRACE=1` for a backtrace.
+```
+
+---
+
+# multiple threads
+
+```rust
+let mut handles = vec![];
+
+for i in 0..100_000 {
+    handles.push(
+        thread::spawn(move || {
+            println!("spawning thread {}", i);
+            thread::sleep(Duration::from_secs(1));
+        })
+    );
+}
+
+for h in handles { h.join().unwrap() }
+```
+
+---
+
+```sh
+corey@mac /p/tmp [101]> ./code
+spawning thread 0
+spawning thread 1
+spawning thread 3
+spawning thread 4
+spawning thread 2
+...
+spawning thread 2042
+spawning thread 2043
+spawning thread 2044
+spawning thread 2045
+spawning thread 2046
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: Error { repr: Os { code: 35, message: "Resource temporarily unavailable" } }', src/libcore/result.rs:906:4
+note: Run with `RUST_BACKTRACE=1` for a backtrace.
+```
 
 ???
 
-note: in the gif, i put a 'sleep' inside the loop to slow down execution
+**explain**: everything in the console
+
+so what's going on here
 
 ---
 
-threads
+class: center, middle
 
----
+# threading models
 
-native threads
-
----
-
-native threads vs. green threads
+## 1:1 threading
 
 ???
+
+to answer that question, we first need to answer the question, "what is rust's threading model?"
+
+---
+
+class: center, middle
+
+<img src="https://i.imgur.com/j4xuW9Z.png" width="100%">
+
+???
+
+where a language calls the operating system APIs to create threads is sometimes called 1:1, one OS thread per one language thread
+
+you might ask, what other types of threading models are there?
+
+---
+
+class: center, middle
+
+# green threads
+
+## M:N threading
+
+???
+
+many programming languages provide their own special implementation of threads.
+
+programming language provided threads are sometimes called lightweight or green threads.
+
+these languages take a number of green threads and execute them in the context of a different number of operating system threads.
+
+---
+
+class: center, middle
+
+# native threads vs. green threads
+
+<img src="https://i.imgur.com/GtsNXX5.png" width="90%">
+
+???
+
+here's a visual comparing native os threads and green threads
+
+**describe**: the visual
+
+languages with green threads:
+
+* go goroutines
+* python w/ gevent
+* lua coroutines
+* julia tasks
+
+there could be a whole talk dedicated to discussing the tradeoffs of native threads versus green threads, so i'm not going to spend very long on this slide.
 
 if you're working with a new programming language and dealing with concurrency, it's important to know what's happening behind the scenes
+
+prior to 1.0, rust used to have green threads
 
 ---
 
@@ -567,6 +842,14 @@ https://doc.rust-lang.org/book/
 ???
 
 some of the ideas/examples in this presentation were taken from the last second edition of TRPL book (by carol and steve)
+
+---
+
+questions?
+
+???
+
+threads vs. processes: The typical difference is that threads (of the same process) run in a shared memory space, while processes run in separate memory spaces.
 
 ---
 
