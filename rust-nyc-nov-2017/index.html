@@ -61,6 +61,18 @@ https://doc.servo.org/src/rayon_core/thread_pool/mod.rs.html#47-49
 
 class: center, middle
 
+# threads
+
+# threadpools
+
+# implementation
+
+# usage
+
+---
+
+class: center, middle
+
 # who
 
 ## corey farwell
@@ -466,11 +478,63 @@ languages with green threads:
 * lua coroutines
 * julia tasks
 
+so for example if you tried to run 100,000 goroutines, we would not hit a native thread limit since go multiplexes go routines to a fixed number of native threads.
+
 there could be a whole talk dedicated to discussing the tradeoffs of native threads versus green threads, so i'm not going to spend very long on this slide.
 
 if you're working with a new programming language and dealing with concurrency, it's important to know what's happening behind the scenes
 
 prior to 1.0, rust used to have green threads
+
+---
+
+???
+
+**read**: considering rust's native os threading model, we need some minimal layer of abstraction that allows us to schedule many tasks operating on a fixed number of native os threads.
+
+---
+
+# thread pool!
+
+???
+
+_A thread pool is a group of spawned threads that are ready to handle some task. When the program receives a new task, one of the threads in the pool will be assigned the task and will go off and process it. The remaining threads in the pool are available to handle any other tasks that come in while the first thread is processing. When the first thread is done processing its task, it gets returned to the pool of idle threads ready to handle a new task._
+
+---
+
+```rust
+let mut handles = vec![];
+
+for i in 0..100_000 {
+    handles.push(
+        thread::spawn(move || {
+            thread::sleep(Duration::from_secs(1));
+            println!("hello from thread {}", i);
+        })
+    );
+}
+
+for h in handles { h.join().unwrap() }
+```
+
+???
+
+returning back to our earlier problematic example, instead of attempting to spawn 100,000 native threads, we'll use a threadpool to limit execution to four native threads
+
+---
+
+```rust
+let mut threadpool = ThreadPool::new(4);
+
+for i in 0..100_000 {
+    threadpool.execute(|| {
+        thread::sleep(Duration::from_secs(1));
+        println!("hello from thread {}", i);
+    });
+}
+
+threadpoo.join().unwrap();
+```
 
 ---
 
@@ -514,16 +578,6 @@ server process, its configuration, documents or log files.
 
 ---
 
-???
-
-**read**: we need some minimal layer of abstraction that allows us to run work on a fixed number of threads.
-
----
-
-# thread pool
-
----
-
 ```rust
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
@@ -553,7 +607,7 @@ class: center, middle
 
 **read**: so as per the last slide, now that you've seen what a basic interface is for the threadpool, i want to briefly run through how one might implement this.
 
-**read**: when preparing this presentation, i had a choice. i could walk through a 
+**read**: when preparing this presentation, i had a choice. i could walk through a
 
 
 there's a _lot_ of code on the following slides, and if you get lost, don't worry. if you're new to rust, it's okay (if not expected) to feel lost. there's a reason this material isn't covered until the last chapter of the new book. immediately after the implementation, i'll introduce some of the threadpool libraries that already exist in the ecosystem that anyone can use.
@@ -657,6 +711,10 @@ impl ThreadPool {
 type Job = Box<FnOnce + Send + 'static>;
 ```
 
+???
+
+**explain**: the code
+
 ---
 
 # implementation: worker
@@ -705,6 +763,12 @@ impl Worker {
     }
 }
 ```
+
+???
+
+**explain**: the code
+
+**something i simplified**: Receiver is not allowed to be shared across different threads (because !Send), so it needs to be wrapped in a mutex to ensure it's only used by one thread at a time
 
 ---
 
