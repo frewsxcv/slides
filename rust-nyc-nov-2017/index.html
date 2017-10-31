@@ -4,14 +4,14 @@
     <title>Title</title>
     <meta charset="utf-8">
     <style>
-      @import url('https://fonts.googleapis.com/css?family=Droid+Sans|Droid+Serif|Inconsolata');
+      @import url('https://fonts.googleapis.com/css?family=Lato|Inconsolata');
 
       body {
-        font-family: 'Droid Serif';
+        font-family: 'Lato';
       }
 
       .remark-slide-content h1, h2, h3, h4, h5, h6 {
-        font-family: 'Droid Sans';
+        font-family: 'Lato';
         font-weight: normal;
       }
 
@@ -43,23 +43,25 @@
 
 class: center, middle
 
-# threadpools
+what the government doesn't want you to know about threadpools
 
-# threadpools
+10 ways threadpools can suck the life out of you
 
-# threadpools
+the rise of threadpools and how to make it stop
+
+threadpools die every minute you don't read this article
+
+11 ways investing in threadpools can make you a millionaire
+
+7 things lady gaga has in common with threadpools
+
+8 things the media hasn't told you about threadpools
 
 ???
 
-hello everyone.
+hello everyone, thanks all for coming.
 
-i'm here to talk about threadpools
-
-https://github.com/Kimundi/scoped-threadpool-rs/blob/master/src/lib.rs
-
-kimundi.github.io/scoped-threadpool-rs/scoped_threadpool/struct.Scope.html
-
-https://doc.servo.org/src/rayon_core/thread_pool/mod.rs.html#47-49
+the main focus of my talk to night is on threadpools in rust. i wasn't clever enough to come up with a witty talk title so here's a bunch of clickbait-generated headlines for threadpools instead.
 
 ---
 
@@ -72,6 +74,24 @@ class: center, middle
 # implementation
 
 # usage
+
+???
+
+# threads
+
+* how to use them in rust
+
+# threadpools
+
+* why we need threadpools
+
+# implementation
+
+* basic implementation
+
+# usage
+
+* brief overview of existing threadpool implementations
 
 ---
 
@@ -115,7 +135,7 @@ twitter github
 
 class: center, middle
 
-# slides.rwell.org
+# https://slides.rwell.org
 
 ???
 
@@ -377,6 +397,33 @@ thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: Error { 
 note: Run with `RUST_BACKTRACE=1` for a backtrace.
 ```
 
+???
+
+let's return to our code
+
+---
+
+# multiple threads
+
+```rust
+let mut handles = vec![];
+
+for i in 0..100_000 {
+    handles.push(
+        thread::spawn(move || {
+            thread::sleep(Duration::from_secs(1));
+            println!("spawning thread {}", i);
+        })
+    );
+}
+
+for h in handles { h.join().unwrap() }
+```
+
+???
+
+instead of printing after we sleep, let's print as soon as we start the thread...
+
 ---
 
 # multiple threads
@@ -418,6 +465,8 @@ note: Run with `RUST_BACKTRACE=1` for a backtrace.
 ???
 
 **explain**: everything in the console
+
+those of you with powers of two memorized might have alarms going off in your head right now
 
 so what's going on here
 
@@ -498,11 +547,25 @@ prior to 1.0, rust used to have green threads
 
 ---
 
+class: center, middle
+
 # thread pool!
+
+---
+
+class: center, middle
+
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Thread_pool.svg/1200px-Thread_pool.svg.png" width="100%">
 
 ???
 
-_A thread pool is a group of spawned threads that are ready to handle some task. When the program receives a new task, one of the threads in the pool will be assigned the task and will go off and process it. The remaining threads in the pool are available to handle any other tasks that come in while the first thread is processing. When the first thread is done processing its task, it gets returned to the pool of idle threads ready to handle a new task._
+A thread pool is a group of spawned threads that are ready to handle some task. 
+
+When the program receives a new task, one of the threads in the pool will be assigned the task and will go off and process it.
+
+The remaining threads in the pool are available to handle any other tasks that come in while the first thread is processing.
+
+When the first thread is done processing its task, it gets returned to the pool of idle threads ready to handle a new task.
 
 ---
 
@@ -522,8 +585,6 @@ for h in handles { h.join().unwrap() }
 ```
 
 ???
-
-returning back to our earlier problematic example, instead of attempting to spawn 100,000 native threads, we'll use a threadpool to limit execution to four native threads
 
 ---
 
@@ -611,10 +672,19 @@ class: center, middle
 
 **read**: so as per the last slide, now that you've seen what a basic interface is for the threadpool, i want to briefly run through how one might implement this.
 
-**read**: when preparing this presentation, i had a choice. i could walk through a
+---
 
+class: center, middle
 
-there's a _lot_ of code on the following slides, and if you get lost, don't worry. if you're new to rust, it's okay (if not expected) to feel lost. there's a reason this material isn't covered until the last chapter of the new book. immediately after the implementation, i'll introduce some of the threadpool libraries that already exist in the ecosystem that anyone can use.
+# https://doc.rust-lang.org/book/second-edition/
+
+???
+
+the implementation i'm walking through is virtually identical to the threadpool implementation introduced in the last chapter of the second edition of the rust programming language book.
+
+for simplicity and readability, i cut a few corners in the implementation so the slides aren't just a wall of text.
+
+if you get lost during this section, don't worry, you can always refer to this link for a more thorough explanation.
 
 ---
 
@@ -778,7 +848,9 @@ impl Worker {
 
 ???
 
-and that's it
+and that's it, that's how you implement a threadpool
+
+like i said earlier, if you want a much more thorough explanation about the implementation, i strongly recommend taking a look at the book.
 
 ---
 
@@ -862,13 +934,25 @@ pub fn global() -> &'static Arc<ThreadPool> {
 }
 ```
 
+???
+
+**describe**: what is good about a static threadpool
+
 ---
+
+class: center, middle
 
 ```rust
 rayon::spawn(|| {
     // ...
 })
 ```
+
+???
+
+rayon is the primary threadpool used in servo, and parts of servo are shipping in firefox literally this next tuesday, so as far as i understand rayon will be in firefox next week
+
+---
 
 ```rust
 let mut vec = vec![0, 1, 2, 3, 4, 5, 6, 7];
@@ -889,20 +973,6 @@ assert_eq!(vec, vec![1, 2, 3, 4, 5, 6, 7, 8]);
 ```
 
 .footnote[https://github.com/rayon-rs/rayon/blob/master/rayon-core/src/thread_pool/mod.rs]
-
----
-
-rayon is in stylo which is in firefox (in a week)
-
----
-
-further reading / thanks
-
-https://doc.rust-lang.org/book/
-
-???
-
-some of the ideas/examples in this presentation were taken from the last second edition of TRPL book (by carol and steve)
 
 ---
 
