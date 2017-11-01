@@ -43,30 +43,6 @@
 
 class: center, middle
 
-what the government doesn't want you to know about threadpools
-
-10 ways threadpools can suck the life out of you
-
-the rise of threadpools and how to make it stop
-
-threadpools die every minute you don't read this article
-
-11 ways investing in threadpools can make you a millionaire
-
-7 things lady gaga has in common with threadpools
-
-8 things the media hasn't told you about threadpools
-
-???
-
-hello everyone, thanks all for coming.
-
-the main focus of my talk tonight is on threadpools in rust. i wasn't clever enough to come up with a witty talk title so here's a bunch of clickbait-generated headlines for threadpools instead.
-
----
-
-class: center, middle
-
 # threads
 
 # threadpools
@@ -76,6 +52,8 @@ class: center, middle
 # usage
 
 ???
+
+hello everyone, i'm going to be talking today mainly about threadpools in rust. in particular starting out by introducing...
 
 # threads
 
@@ -923,7 +901,7 @@ let mut vec = vec![0, 1, 2, 3, 4, 5, 6, 7];
 let pool = ThreadPool::new(4);
 
 for e in &mut vec {
-    pool.spawn(move || {
+    pool.execute(move || {
         *e += 1;
     });
 }
@@ -944,6 +922,27 @@ explain**: the code and why it doesn't compile
 
 ---
 
+# scoped pools
+
+class: small
+
+```sh
+error[E0597]: `vec` does not live long enough
+--> src/main.rs:9:19
+ |
+ |     for e in &mut vec {
+ |                   ^^^ does not live long enough
+...
+ | }
+ | - borrowed value only lives until here
+ |
+ = note: borrowed value must be valid for the static lifetime...
+ ```
+
+---
+
+# scoped pools
+
 ```rust
 let mut vec = vec![0, 1, 2, 3, 4, 5, 6, 7];
 
@@ -957,8 +956,6 @@ rayon::scoped(|scoped| {
 
 println!("{:?}", vec);
 ```
-
-.footnote[https://github.com/rayon-rs/rayon/blob/master/rayon-core/src/thread_pool/mod.rs]
 
 ---
 
