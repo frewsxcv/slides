@@ -61,7 +61,7 @@ threadpools die every minute you don't read this article
 
 hello everyone, thanks all for coming.
 
-the main focus of my talk to night is on threadpools in rust. i wasn't clever enough to come up with a witty talk title so here's a bunch of clickbait-generated headlines for threadpools instead.
+the main focus of my talk tonight is on threadpools in rust. i wasn't clever enough to come up with a witty talk title so here's a bunch of clickbait-generated headlines for threadpools instead.
 
 ---
 
@@ -83,7 +83,7 @@ class: center, middle
 
 # threadpools
 
-* why we need threadpools
+* why we need them
 
 # implementation
 
@@ -143,64 +143,38 @@ class: center, middle
 
 ---
 
+class: center, middle
+
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Rust_programming_language_black_logo.svg/1024px-Rust_programming_language_black_logo.svg.png" width="30%">
+
+# safe
+
+# concurrent
+
+# practical
+
+
 ???
 
-so why are we all here today? we're here to talk about rust. and what is rust?
+let's begin. rust is commonly advertised as a
+
+* safe
+* concurrent
+* and practical systems language
+
+the focus of my talk today is on concurrency.
 
 ---
 
 class: center, middle
 
-<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Rust_programming_language_black_logo.svg/1024px-Rust_programming_language_black_logo.svg.png" width="60%">
-
-???
-
-rust is a programming language!
-
-and what is the goal of this programming language?
-
----
-
-class: middle
-
-<em>
-
-**What is this project's goal?**
-
-To design and implement a safe, concurrent, practical systems language.
-
-Rust exists because other languages at this level of abstraction and efficiency are unsatisfactory. In particular:
-
-1. There is too little attention paid to safety.
-1. They have poor concurrency support.
-1. There is a lack of practical affordances.
-1. They offer limited control over resources.
-
-Rust exists as an alternative that provides both efficient code and a comfortable level of abstraction, while improving on all four of these points.
-
-</em>
-
-.footnote[— https://www.rust-lang.org/en-US/faq.html]
-
-???
-
-according to the FAQs on the rust website, the goal of rust is...
-
-*To design and implement a safe, concurrent, practical systems language.*
-
-in particular, for this talk, we're going to focus on the 'concurrent' aspect
-
----
-
-class: center, middle
-
-# “concurrent”
+# concurrent
 
 ???
 
 wikipedia defines concurrent computing to be:
 
-*a form of computing in which several computations are executed during overlapping time periods—concurrently—instead of sequentially (one completing before the next starts).*
+*a form of computing in which several computations are executed during overlapping time periods—concurrently—instead of sequentially*
 
 what is the basic building block of concurrency in rust?
 
@@ -284,7 +258,11 @@ fn main() {
 
 ???
 
-`thread::spawn` returns a `JoinHandle` struct. the `JoinHandle` struct allows us to block the main thread and wait for the child thread to complete via the `join` method. now when we run it...
+`thread::spawn` returns a `JoinHandle` struct.
+
+the `JoinHandle` struct allows us to block the main thread and wait for the child thread to complete via the `join` method.
+
+now when we run it...
 
 ---
 
@@ -367,7 +345,7 @@ hello from thread 1
 
 as you can see, all four threads get run, in a non-deterministic order, in true asynchronous fashion
 
-let's try bumping up the amount of concurrency here a little bit...
+four tasks getting run is not very impressive, let's try bumping up that number a small amount...
 
 ---
 
@@ -388,6 +366,10 @@ for i in 0..100_000 {
 for h in handles { h.join().unwrap() }
 ```
 
+???
+
+**explain**: the differences in the code
+
 ---
 
 ```sh
@@ -398,6 +380,8 @@ note: Run with `RUST_BACKTRACE=1` for a backtrace.
 ```
 
 ???
+
+**read**: the error message
 
 let's return to our code
 
@@ -476,11 +460,11 @@ class: center, middle
 
 # threading models
 
-## 1:1 threading
-
 ???
 
 to answer that question, we first need to answer the question, "what is rust's threading model?"
+
+among other things, a programming language's threading model specifies how language defined threads interact with native operating system threads
 
 ---
 
@@ -490,9 +474,13 @@ class: center, middle
 
 ???
 
-where a language calls the operating system APIs to create threads is sometimes called 1:1, one OS thread per one language thread
+**read**: off the image
 
-you might ask, what other types of threading models are there?
+so in essence, whenever a rust thread is created, a corresponding native thread is created. because there is a 1:1 relationship here, this sort of threading model is often referred to as 1:1 threading.
+
+so in our previous example, when we tried to spin up 100,000 rust threads, because of rust's threading model, we're also telling macOS to spin up 100,000 threads, and it so happens that (at least on my machine) macOS doesn't want me spinning up more than 2048 threads.
+
+so now we have an understanding of what this 1:1 threading is, you might ask, what other types of threading models are there?
 
 ---
 
@@ -510,6 +498,8 @@ programming language provided threads are sometimes called lightweight or green 
 
 these languages take a number of green threads and execute them in the context of a different number of operating system threads.
 
+**mention**: M:N
+
 ---
 
 class: center, middle
@@ -520,7 +510,7 @@ class: center, middle
 
 ???
 
-here's a visual comparing native os threads and green threads
+here's a crappy visual i through together comparing native os threads and green threads
 
 **describe**: the visual
 
@@ -530,20 +520,19 @@ languages with green threads:
 * python w/ gevent
 * lua coroutines
 * julia tasks
+* prior to 1.0, rust used to have green threads
 
 so for example if you tried to run 100,000 goroutines, we would not hit a native thread limit since go multiplexes go routines to a fixed number of native threads.
 
-there could be a whole talk dedicated to discussing the tradeoffs of native threads versus green threads, so i'm not going to spend very long on this slide.
+there are a ton of tradeoffs when deciding if one's programming language should use native threads or green threads. how different languages actually implement green threading is a bit fuzzy to me so it's hard for me personally to make good direct comparisons, soooooooo don't expect me to answer any super indepth questions about this.
 
-if you're working with a new programming language and dealing with concurrency, it's important to know what's happening behind the scenes
-
-prior to 1.0, rust used to have green threads
+the important takeaway here is, if you're working with concurrency in any programming language or library, it's important to consider the threading model. is it okay for me to execute 10,000 coroutines, threads, goroutines, tasks.
 
 ---
 
 ???
 
-**read**: considering rust's native os threading model, we need some minimal layer of abstraction that allows us to schedule many tasks operating on a fixed number of native os threads.
+**read**: considering rust's native os threading model, we need some minimal layer of abstraction that allows us to schedule many tasks (potentially 100,000 takss) operating on a fixed number of native os threads.
 
 ---
 
@@ -566,6 +555,8 @@ When the program receives a new task, one of the threads in the pool will be ass
 The remaining threads in the pool are available to handle any other tasks that come in while the first thread is processing.
 
 When the first thread is done processing its task, it gets returned to the pool of idle threads ready to handle a new task.
+
+so going back to our earlier problematic code...
 
 ---
 
@@ -592,7 +583,7 @@ for h in handles { h.join().unwrap() }
 let mut threadpool = ThreadPool::new(4);
 
 for i in 0..100_000 {
-    threadpool.execute(|| {
+    threadpool.execute(move || {
         thread::sleep(Duration::from_secs(1));
         println!("hello from thread {}", i);
     });
@@ -601,66 +592,9 @@ for i in 0..100_000 {
 threadpool.join().unwrap();
 ```
 
----
-
-```rust
-let listener =
-    TcpListener::bind("127.0.0.1:8080").unwrap();
-
-for stream in listener.incoming() {
-    let stream = stream.unwrap();
-
-    thread::spawn(|| {
-        handle_connection(stream);
-    });
-}
-```
-
 ???
 
-more realistic example of how this problematic
-
-one thread per incoming tcp connection
-
-you might be thinking: 'who would ever design a system like that!'
-
----
-
-<img src="https://i.imgur.com/sCR87pi.png" width="100%">
-
-???
-
-RFC 3875 - The Common Gateway Interface (CGI)
-
-<em>
-9.5.  Script Interference with the Server
-
-The most common implementation of CGI invokes the script as a child
-process using the same user and group as the server process.  It
-should therefore be ensured that the script cannot interfere with the
-server process, its configuration, documents or log files.
-</em>
-
----
-
-```rust
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
-    let pool = ThreadPool::new(4);
-
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
-
-        pool.execute(|| {
-            handle_connection(stream);
-        });
-    }
-}
-```
-
-???
-
-explain how this code is different than the previous iteration
+**explain**: the code
 
 ---
 
@@ -684,7 +618,7 @@ the implementation i'm walking through is virtually identical to the threadpool 
 
 for simplicity and readability, i cut a few corners in the implementation so the slides aren't just a wall of text.
 
-if you get lost during this section, don't worry, you can always refer to this link for a more thorough explanation.
+if you get lost during this section, don't worry, you can always refer to the book for a more thorough explanation.
 
 ---
 
@@ -697,6 +631,20 @@ class: center, middle
 ## job
 
 ## worker
+
+---
+
+class: center, middle
+
+<img src="https://i.imgur.com/ERhFzxz.png" width="90%">
+
+???
+
+**explain** the relationships between all these concepts. what creates what
+
+* job is just rust closure
+* threadpool sends out job to all the workers via a channel
+* each of the workers listen on the channel and the jobs and run them on a thread
 
 ---
 
@@ -876,6 +824,8 @@ class: center, middle
 
 **threadpool**: used to be TaskPool in the std before 1.0
 
+between these four crates, if you're looking to use a threadpool, i would suggest using rayon.
+
 ---
 
 # rayon
@@ -901,10 +851,10 @@ fn increment_all(input: &mut [i32]) {
 
 ---
 
-class: center, middle
+# rayon
 
 ```rust
-rayon::ThreadPool
+rayon::ThreadPool::new();
 ```
 
 ---
@@ -940,7 +890,13 @@ pub fn global() -> &'static Arc<ThreadPool> {
 
 ---
 
-class: center, middle
+# rayon
+
+```rust
+rayon::ThreadPool::global().spawn(|| {
+    // ...
+})
+```
 
 ```rust
 rayon::spawn(|| {
@@ -954,29 +910,61 @@ rayon is the primary threadpool used in servo, and parts of servo are shipping i
 
 ---
 
+class: center, middle
+
+# extra credit: scoped pools
+
+---
+
+# scoped pools
+
+```rust
+let mut vec = vec![0, 1, 2, 3, 4, 5, 6, 7];
+let pool = ThreadPool::new(4);
+
+for e in &mut vec {
+    pool.spawn(move || {
+        *e += 1;
+    });
+}
+
+pool.join().unwrap();
+println!("{:?}", vec);
+```
+
+???
+
+imagine this scenario...
+
+**explain**: the code
+
+This task will run in the implicit, global scope, which means that it may outlast the current stack frame -- therefore, it cannot capture any references onto the stack.
+
+explain**: the code and why it doesn't compile
+
+---
+
 ```rust
 let mut vec = vec![0, 1, 2, 3, 4, 5, 6, 7];
 
-// Use the threads as scoped threads that can
-// reference anything outside this closure
 rayon::scoped(|scoped| {
-    // Create references to each element in the vector ...
     for e in &mut vec {
-        // ... and add 1 to it in a seperate thread
         scoped.execute(move || {
             *e += 1;
         });
     }
 });
 
-assert_eq!(vec, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+println!("{:?}", vec);
 ```
 
 .footnote[https://github.com/rayon-rs/rayon/blob/master/rayon-core/src/thread_pool/mod.rs]
 
 ---
 
-questions?
+class: center, middle
+
+# questions?
 
 ???
 
@@ -984,7 +972,9 @@ threads vs. processes: The typical difference is that threads (of the same proce
 
 ---
 
-thanks!
+class: center, middle
+
+# thanks!
     </textarea>
     <script src="https://remarkjs.com/downloads/remark-latest.min.js">
     </script>
